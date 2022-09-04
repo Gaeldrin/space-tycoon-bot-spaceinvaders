@@ -1,0 +1,6 @@
+curl -X 'POST' \
+  'https://space-tycoon.garage-trip.cz/commands' \
+  -H 'accept: */*' \
+  -H 'Content-Type: */*' \
+  -H 'Cookie: SESSION_ID="$SESSION"' \
+  -d @/construct.json
