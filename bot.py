@@ -84,9 +84,9 @@ class Game:
 
         return len(my_ships.keys()), my_ships
 
-    def _get_free_fighters(self):
+    def _get_free_fighters(self, ship_class="4"):
         my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in self.data.ships.items()
-                                if ship.player == self.player_id and ship.ship_class == "4" and ship.command is None}
+                                if ship.player == self.player_id and ship.ship_class == ship_class and ship.command is None}
         #my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in self.data.ships.items()}
 
         return len(my_ships.keys()), my_ships
@@ -99,7 +99,7 @@ class Game:
 
     def _get_enemy_motherships(self) -> dict:
         ships: Dict[Ship] = {ship_id: ship for ship_id, ship in
-                                self.data.ships.items() if ship.player != self.player_id and ship.ship_class == "1"}
+                             self.data.ships.items() if ship.player != self.player_id and ship.ship_class == "1"}
 
         return ships
 
@@ -111,7 +111,7 @@ class Game:
 
     def _get_our_mothership(self) -> dict:
         ships: Dict[Ship] = [(ship_id, ship) for ship_id, ship in
-                                self.data.ships.items() if ship.player == self.player_id and ship.ship_class == "1"]
+                             self.data.ships.items() if ship.player == self.player_id and ship.ship_class == "1"]
 
         if len(ships) == 0:
             return 0
@@ -128,32 +128,36 @@ class Game:
         for enemy_ship_id, enemy_ship in enemy_ships.items():
             sum_dist = 0
             for pos in ship_pos:
-                sum_dist += (pos[0], pos[1], enemy_ship.position[0], enemy_ship.position[1])
+                sum_dist += self._get_dist(pos[0], pos[1], enemy_ship.position[0], enemy_ship.position[1])
             if sum_dist < closest:
                 closest = sum_dist
                 closest_id = enemy_ship_id
 
         return closest_id
 
+    def _attack_on_the_ship(self, commands, attack_id, fighters):
+        for f_id, fighter in fighters.items():
+            commands[f_id] = AttackCommand(attack_id)
+
     def game_logic(self):
         # todo throw all this away
         self.recreate_me()
 
-        fighter_count, fighters = self._get_free_fighters()
+        fighter_count, fighters = self._get_free_fighters(ship_class="4")
         enemy_duck_motherships = self._get_enemy_duck_motherships()
         enemy_motherships = self._get_enemy_motherships()
         enemy_ships = self._get_enemy_ships()
-        our_mother_id, _ = self._get_our_mothership()
+        our_mother_id = self._get_our_mothership()
         commands = {}
 
         # attackers
-        if our_mother_id > 0:
+        if our_mother_id != "0":
             for i in range(10 - fighter_count):
                 commands[our_mother_id] = ConstructCommand(ship_class="4")
 
         if len(enemy_duck_motherships.keys()) > 0:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_motherships, fighters)
-        if len(enemy_motherships.keys()) > 0:
+        elif len(enemy_motherships.keys()) > 0:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_motherships, fighters)
         elif len(enemy_ships.keys()) > 0:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_ships, fighters)
