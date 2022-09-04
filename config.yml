@@ -1,5 +1,4 @@
 #host: "localhost"
-#host: "https://space-tycoon.garage-trip.cz"
-host: "?"
-user: "?"
-password: "?"
+host: "https://space-tycoon.garage-trip.cz"
+user: "spaceinvaders"
+password: "artemis"
