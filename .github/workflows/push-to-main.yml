@@ -21,6 +21,7 @@ jobs:
           host: 164.92.246.13
           user: root
           key: imF(_2AcG#*fbBn
+          args: "-tt -vvv"
 #      - name: SSH command
 #        uses: appleboy/ssh-action@v0.1.4
 #        with:
