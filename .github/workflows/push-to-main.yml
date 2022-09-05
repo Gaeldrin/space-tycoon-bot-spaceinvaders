@@ -16,4 +16,7 @@ jobs:
           username: root
           password: imF(_2AcG#*fbBn
           script: |
-            echo "Hello world"
+            pkill python3
+            cd space-tycoon-bot-spaceinvaders
+            git pull
+            python3 bot.py > /dev/null &
