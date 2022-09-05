@@ -153,6 +153,8 @@ class Game:
         sum_x = 0
         sum_y = 0
         ship_count = len(ships.keys())
+        if ship_count == 0:
+            return [-10000, -10000]
         for ship in ships.values():
             sum_x += ship.position[0]
             sum_y += ship.position[1]
@@ -171,6 +173,8 @@ class Game:
     def move_fleet_to_center(self, commands, mothership_id, pos=None):
         if pos is None:
             pos = [int(self.shippers_center[0]), int(self.shippers_center[1])]
+            if pos[0] == -10000:
+                return
         commands[mothership_id] = MoveCommand(Destination(coordinates=pos))
         for fighter in self.fighters.values():
             commands[fighter.id] = MoveCommand(Destination(target=mothership_id))
@@ -190,12 +194,18 @@ class Game:
                 fighter.attack = False
             any_fighter_attacking &= fighter.attack
 
+        # we destroyed intruders, turn off the attack and return to base
         if self.threat_active and len(intruders.keys()) == 0:
             self.threat_active = False
             self.move_fleet_to_center(commands, mothership_id)
+        # new threat has appeared
         if not any_fighter_attacking and len(intruders.keys()) > 0:
             self.threat_active = True
             self.initiate_fleet_attack(commands, mothership_id, next(iter(intruders)))
+        # we are combatting now but higher priority enemy has appeared close
+        #if self.threat_active and any_fighter_attacking and len(targets.keys()) > 0:
+        #    self.redirect_attack(commands, next(iter(targets)))
+        # we are close, initiate full scale attack
         if self.threat_active and not any_fighter_attacking and len(targets.keys()) > 0:
             self.initiate_fighters_attack(commands, next(iter(targets)))
 
@@ -229,6 +239,9 @@ class Game:
                 commands[mothership_id] = ConstructCommand(ship_class="4")
             if not self.build_finished and len(self.fighters.keys()) == 3:
                 self.build_finished = True
+        else:
+            for ship_id, ship in shippers.items():
+                commands[ship_id] = DecommissionCommand()
 
         # trades here
 
@@ -244,10 +257,6 @@ class Game:
         elif len(enemy_ships.keys()) > 0:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_ships, fighters)
         """
-
-        # Best strategy before we have something clever - just sell shippers
-        for ship_id, ship in shippers.items():
-            commands[ship_id] = DecommissionCommand()
 
         pprint(commands) if commands else None
         try:

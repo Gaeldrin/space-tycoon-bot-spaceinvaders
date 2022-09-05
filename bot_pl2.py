@@ -12,8 +12,7 @@ from space_tycoon_client.models.current_tick import CurrentTick
 from space_tycoon_client.models.data import Data
 from space_tycoon_client.models.destination import Destination
 from space_tycoon_client.models.end_turn import EndTurn
-from space_tycoon_client.models.move_command import MoveCommand
-from space_tycoon_client.models.attack_command import AttackCommand
+from space_tycoon_client.models import MoveCommand, AttackCommand, ConstructCommand
 from space_tycoon_client.models.player import Player
 from space_tycoon_client.models.player_id import PlayerId
 from space_tycoon_client.models.ship import Ship
@@ -177,12 +176,23 @@ class Game:
         # todo throw all this away
         self.recreate_me()
 
-        shipper_count, shippers = self._get_free_fighters(ship_class="3")
+        fighter_count, shippers = self._get_free_fighters(ship_class="4")
+        mothership_id, mothership = self._get_our_mothership()
         commands = {}
 
+        for i in range(3 - fighter_count):
+            commands[mothership_id] = ConstructCommand(ship_class="4")
+        if not self.build_finished and fighter_count == 3:
+            self.build_finished = True
+
         for ship_id, ship in shippers.items():
-            commands[ship_id] = MoveCommand(Destination(coordinates=[216, -810]))
-            break
+            commands[ship_id] = MoveCommand(Destination(target=mothership_id))
+        if self.build_finished:
+            commands[mothership_id] = MoveCommand(Destination(coordinates=[216, -810]))
+
+        #for ship_id, ship in shippers.items():
+        #    commands[ship_id] = MoveCommand(Destination(coordinates=[216, -810]))
+        #    break
 
         pprint(commands) if commands else None
         try:
