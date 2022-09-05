@@ -15,4 +15,9 @@ jobs:
           host: 164.92.246.13
           username: root
           password: imF(_2AcG#*fbBn
-          script: bash space-tycoon-bot-spaceinvaders/.github/workflows/deploy.sh
+          script: |
+            echo "Change directory"
+            cd space-tycoon-bot-spaceinvaders
+            echo "Updating from git"
+            git pull
+            bash .github/workflows/relaunch.sh
