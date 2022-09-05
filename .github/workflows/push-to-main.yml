@@ -15,4 +15,4 @@ jobs:
           host: 164.92.246.13
           username: root
           password: imF(_2AcG#*fbBn
-          script: bash .github/workflows/deploy.sh
+          script: bash space-tycoon-bot-spaceinvaders/.github/workflows/deploy.sh
