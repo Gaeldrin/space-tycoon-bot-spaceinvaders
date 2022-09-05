@@ -113,9 +113,6 @@ class Game:
             return 0, 0
         return ships[0]
 
-    def _get_dist(self, x1, y1, x2, y2):
-        return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
-
     def _get_closest_ship_to_all_fighters(self, enemy_ships, our_ships):
         ship_pos = [(ship.position[0], ship.position[1]) for ship in our_ships.values()]
 
@@ -124,7 +121,7 @@ class Game:
         for enemy_ship_id, enemy_ship in enemy_ships.items():
             sum_dist = 0
             for pos in ship_pos:
-                sum_dist += self._get_dist(pos[0], pos[1], enemy_ship.position[0], enemy_ship.position[1])
+                sum_dist += _get_dist(pos[0], pos[1], enemy_ship.position[0], enemy_ship.position[1])
             if sum_dist < closest:
                 closest = sum_dist
                 closest_id = enemy_ship_id
@@ -228,6 +225,8 @@ def main():
 
     main_loop(ApiClient(configuration=configuration, cookie="SESSION_ID=1"), config)
 
+def _get_dist(x1, y1, x2, y2):
+    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
 
 def _get_enemy_ships(ship_items, ship_class=None, ship_player=None) -> dict:
     ships: Dict[Ship] = {}
