@@ -1,0 +1,19 @@
+name: Deploy when pushed to main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH command
+        uses: fifsky/ssh-action@master
+        with:
+          command: |
+            echo "Hello world"
+          host: 164.92.246.13
+          user: root
+          pass: imF(_2AcG#*fbBn
