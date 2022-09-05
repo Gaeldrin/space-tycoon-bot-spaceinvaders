@@ -15,6 +15,7 @@ from space_tycoon_client.models.data import Data
 from space_tycoon_client.models.destination import Destination
 from space_tycoon_client.models.end_turn import EndTurn
 from space_tycoon_client.models.move_command import MoveCommand
+from space_tycoon_client.models import TradeCommand
 from space_tycoon_client.models.construct_command import ConstructCommand
 from space_tycoon_client.models.attack_command import AttackCommand
 from space_tycoon_client.models.player import Player
@@ -78,9 +79,9 @@ class Game:
                 print(f"!!! EXCEPTION !!! Game logic error {e}")
                 traceback.print_exception(e)
 
-    def _get_fighters(self):
+    def _get_fighters(self, ship_class="4"):
         my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in
-                                self.data.ships.items() if ship.player == self.player_id and ship.ship_class == "4"}
+                                self.data.ships.items() if ship.player == self.player_id and ship.ship_class == ship_class}
 
         return len(my_ships.keys()), my_ships
 
@@ -91,21 +92,16 @@ class Game:
 
         return len(my_ships.keys()), my_ships
 
-    def _get_enemy_duck_motherships(self) -> dict:
-        ships: Dict[Ship] = {ship_id: ship for ship_id, ship in
-                             self.data.ships.items() if ship.player == "5" and ship.ship_class == "1"}
-
-        return ships
-
-    def _get_enemy_motherships(self) -> dict:
-        ships: Dict[Ship] = {ship_id: ship for ship_id, ship in
-                             self.data.ships.items() if ship.player != self.player_id and ship.ship_class == "1"}
-
-        return ships
-
-    def _get_enemy_ships(self) -> dict:
-        ships: Dict[Ship] = {ship_id: ship for ship_id, ship in
-                             self.data.ships.items() if ship.player != self.player_id and ship.ship_class == "1"}
+    def _get_enemy_ships(self, ship_class=None, ship_player=None) -> dict:
+        ships: Dict[Ship] = {}
+        for ship_id, ship in self.data.ships.items():
+            if ship_class is not None and ship.ship_class != ship_class:
+                continue
+            if ship_player is not None and ship.player != ship_player:
+                continue
+            if ship_player is None and ship.player == self.player_id:
+                continue
+            ships[ship_id] = ship
 
         return ships
 
@@ -114,7 +110,7 @@ class Game:
                              self.data.ships.items() if ship.player == self.player_id and ship.ship_class == "1"]
 
         if len(ships) == 0:
-            return 0
+            return 0, 0
         return ships[0]
 
     def _get_dist(self, x1, y1, x2, y2):
@@ -143,27 +139,45 @@ class Game:
         # todo throw all this away
         self.recreate_me()
 
+        can_build = True
+
+        total_fighter_count, _ = self._get_fighters(ship_class="4")
         fighter_count, fighters = self._get_free_fighters(ship_class="4")
-        enemy_duck_motherships = self._get_enemy_duck_motherships()
-        enemy_motherships = self._get_enemy_motherships()
-        enemy_ships = self._get_enemy_ships()
-        our_mother_id = self._get_our_mothership()
+        shipper_count, shippers = self._get_free_fighters(ship_class="3")
+        enemy_duck_fighters = self._get_enemy_ships(ship_class="4", ship_player="5")
+        enemy_duck_motherships = self._get_enemy_ships(ship_class="1", ship_player="5")
+        enemy_fighters = self._get_enemy_ships(ship_class="4")
+        enemy_motherships = self._get_enemy_ships(ship_class="1")
+        enemy_ships = self._get_enemy_ships(ship_class=None)
+        our_mother_id, _ = self._get_our_mothership()
         commands = {}
 
         # attackers
         if our_mother_id != "0":
-            for i in range(10 - fighter_count):
+            for i in range(3 - total_fighter_count):
                 commands[our_mother_id] = ConstructCommand(ship_class="4")
+        if total_fighter_count >= 3:
+            can_build = False
 
-        if len(enemy_duck_motherships.keys()) > 0:
+        # trades
+
+        if len(enemy_duck_fighters.keys()) > 0:
+            attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_fighters, fighters)
+        elif len(enemy_duck_motherships.keys()) > 0:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_motherships, fighters)
+        elif len(enemy_fighters.keys()) > 0:
+            attack_id = self._get_closest_ship_to_all_fighters(enemy_fighters, fighters)
         elif len(enemy_motherships.keys()) > 0:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_motherships, fighters)
         elif len(enemy_ships.keys()) > 0:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_ships, fighters)
 
+        # send fighters to attack
         for f_id, fighter in fighters.items():
             commands[f_id] = AttackCommand(attack_id)
+        # send mothership to attack
+        if not can_build and our_mother_id != "0":
+            commands[our_mother_id] = AttackCommand(attack_id)
 
         pprint(commands) if commands else None
         try:
@@ -215,5 +229,35 @@ def main():
     main_loop(ApiClient(configuration=configuration, cookie="SESSION_ID=1"), config)
 
 
+def _get_enemy_ships(ship_items, ship_class=None, ship_player=None) -> dict:
+    ships: Dict[Ship] = {}
+    for ship_id, ship in ship_items.items():
+        if ship_class is not None and ship.ship_class != ship_class:
+            continue
+        if ship_player is not None and ship.player != ship_player:
+            continue
+        if ship_player is None and ship.player == "1":
+            continue
+        ships[ship_id] = ship
+
+    return ships
+
+
+def test_ships():
+    ship_items = {
+        "1": Ship(ship_class="4", player="1", life=1000, name="d", position=[0, 0], prev_position=[0, 0], resources=""),
+        "2": Ship(ship_class="4", player="2", life=1000, name="d", position=[0, 0], prev_position=[0, 0], resources=""),
+        "3": Ship(ship_class="4", player="5", life=1000, name="d", position=[0, 0], prev_position=[0, 0], resources=""),
+        "4": Ship(ship_class="4", player="5", life=1000, name="d", position=[0, 0], prev_position=[0, 0], resources=""),
+        "5": Ship(ship_class="1", player="1", life=1000, name="d", position=[0, 0], prev_position=[0, 0], resources=""),
+        "6": Ship(ship_class="1", player="5", life=1000, name="d", position=[0, 0], prev_position=[0, 0], resources=""),
+    }
+    enemy_duck_fighters = _get_enemy_ships(ship_items, ship_class="4", ship_player="5")
+    enemy_duck_motherships = _get_enemy_ships(ship_items, ship_class="1", ship_player="5")
+    enemy_motherships = _get_enemy_ships(ship_items, ship_class="1")
+    enemy_ships = _get_enemy_ships(ship_items, ship_class=None)
+
+
 if __name__ == '__main__':
     main()
+    #test_ships()
