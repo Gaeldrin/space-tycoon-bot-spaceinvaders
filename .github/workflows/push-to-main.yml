@@ -9,11 +9,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: SSH command
+      - name: Deploy via SSH
         uses: fifsky/ssh-action@master
         with:
           command: |
             echo "Hello world"
+            exit 1
           host: 164.92.246.13
           user: root
           pass: imF(_2AcG#*fbBn
