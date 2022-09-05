@@ -10,27 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: SSH command
-        uses: fifsky/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.4
         with:
-          command: |
+          host: 164.92.246.13
+          username: root
+          password: imF(_2AcG#*fbBn
+          script: |
             echo "Change directory"
             cd space-tycoon-bot-spaceinvaders
             echo "Updating from git"
             git pull
             bash .github/workflows/relaunch.sh
-          host: 164.92.246.13
-          user: root
-          key: imF(_2AcG#*fbBn
-          args: "-tt -vvv"
-#      - name: SSH command
-#        uses: appleboy/ssh-action@v0.1.4
-#        with:
-#          host: 164.92.246.13
-#          username: root
-#          password: imF(_2AcG#*fbBn
-#          script: |
-#            echo "Change directory"
-#            cd space-tycoon-bot-spaceinvaders
-#            echo "Updating from git"
-#            git pull
-#            bash .github/workflows/relaunch.sh
