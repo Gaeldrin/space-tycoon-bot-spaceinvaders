@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: SSH command
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.4
         with:
           host: 164.92.246.13
           username: root
