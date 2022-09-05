@@ -13,8 +13,6 @@ from space_tycoon_client.models.data import Data
 from space_tycoon_client.models.destination import Destination
 from space_tycoon_client.models.end_turn import EndTurn
 from space_tycoon_client.models.move_command import MoveCommand
-from space_tycoon_client.models import TradeCommand, DecommissionCommand
-from space_tycoon_client.models.construct_command import ConstructCommand
 from space_tycoon_client.models.attack_command import AttackCommand
 from space_tycoon_client.models.player import Player
 from space_tycoon_client.models.player_id import PlayerId
@@ -22,10 +20,10 @@ from space_tycoon_client.models.ship import Ship
 from space_tycoon_client.models.static_data import StaticData
 from space_tycoon_client.rest import ApiException
 
-CONFIG_FILE = "config.yml"
-RADIUS = 300
-ATTACK_RADIUS = 30
-TRADE_CENTER_TOL = 30
+CONFIG_FILE = "config_pl2.yml"
+RADIUS = 100
+ATTACK_RADIUS = 20
+TRADE_CENTER_TOL = 20
 
 
 class ConfigException(Exception):
@@ -158,10 +156,10 @@ class Game:
             sum_y += ship.position[1]
         self.shippers_center = [sum_x / ship_count, sum_y / ship_count]
 
-    def initiate_fleet_attack(self, commands, mothership_id, attack_id):
-        commands[mothership_id] = AttackCommand(attack_id)
+    def initiate_fleet_attack(self, commands, mothership, attack_id):
+        commands[mothership.id] = AttackCommand(attack_id)
         for fighter in self.fighters.values():
-            commands[fighter.id] = MoveCommand(Destination(target=mothership_id))
+            commands[fighter.id] = MoveCommand(mothership.id)
 
     def initiate_fighters_attack(self, commands, attack_id):
         for fighter in self.fighters.values():
@@ -170,80 +168,21 @@ class Game:
 
     def move_fleet_to_center(self, commands, mothership_id, pos=None):
         if pos is None:
-            pos = [int(self.shippers_center[0]), int(self.shippers_center[1])]
+            pos = self.shippers_center
         commands[mothership_id] = MoveCommand(Destination(coordinates=pos))
         for fighter in self.fighters.values():
             commands[fighter.id] = MoveCommand(Destination(target=mothership_id))
-
-    def hadrian_wall(self, commands, mothership_id, mothership, fighters, enemy_ships):
-        """
-        Attacks intruders in given RADIUS by sending our mothership.
-        When on sight (ATTACK_RADIUS), fighters surrounding our motherships are sent into battle.
-        """
-
-        intruders = find_ships_in_radius(mothership.position, RADIUS, enemy_ships)
-        targets = find_ships_in_radius(mothership.position, ATTACK_RADIUS, enemy_ships)
-
-        any_fighter_attacking = False
-        for fighter_id, fighter in self.fighters.items():
-            if fighters[fighter_id].command is None:
-                fighter.attack = False
-            any_fighter_attacking &= fighter.attack
-
-        if self.threat_active and len(intruders.keys()) == 0:
-            self.threat_active = False
-            self.move_fleet_to_center(commands, mothership_id)
-        if not any_fighter_attacking and len(intruders.keys()) > 0:
-            self.threat_active = True
-            self.initiate_fleet_attack(commands, mothership_id, next(iter(intruders)))
-        if self.threat_active and not any_fighter_attacking and len(targets.keys()) > 0:
-            self.initiate_fighters_attack(commands, next(iter(targets)))
 
     def game_logic(self):
         # todo throw all this away
         self.recreate_me()
 
-        fighters = self._get_fighters(ship_class="4")
         shipper_count, shippers = self._get_free_fighters(ship_class="3")
-        enemy_fighters = self._get_enemy_ships(ship_class="4")
-        enemy_motherships = self._get_enemy_ships(ship_class="1")
-        enemy_ships = self._get_enemy_ships(ship_class=None)
-        mothership_id, mothership = self._get_our_mothership()
         commands = {}
 
-        self._update_shippers_center(shippers)
-
-        if mothership_id != "0":
-            if self.build_finished:
-                """
-                if get_dist(
-                        self.shippers_center[0], self.shippers_center[1], mothership.position[0], mothership.position[1]
-                ) > TRADE_CENTER_TOL:
-                    self.move_fleet_to_center(commands, mothership)
-                """
-
-                #self.move_fleet_to_center(commands, mothership_id, pos=[461, -924])
-                self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships)
-                # todo fallback if mothership is dead but fighters are not
-            for i in range(3 - len(fighters.keys())):
-                commands[mothership_id] = ConstructCommand(ship_class="4")
-            if not self.build_finished and len(self.fighters.keys()) == 3:
-                self.build_finished = True
-
-        # trades here
-
-        """
-        if len(enemy_duck_fighters.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_fighters, fighters)
-        elif len(enemy_duck_motherships.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_motherships, fighters)
-        elif len(enemy_fighters.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_fighters, fighters)
-        elif len(enemy_motherships.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_motherships, fighters)
-        elif len(enemy_ships.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_ships, fighters)
-        """
+        for ship_id, ship in shippers.items():
+            commands[ship_id] = MoveCommand(Destination(coordinates=[216, -810]))
+            break
 
         pprint(commands) if commands else None
         try:
