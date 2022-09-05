@@ -245,6 +245,10 @@ class Game:
             attack_id = self._get_closest_ship_to_all_fighters(enemy_ships, fighters)
         """
 
+        # Best strategy before we have something clever - just sell shippers
+        for ship_id, ship in shippers.items():
+            commands[ship_id] = DecommissionCommand()
+
         pprint(commands) if commands else None
         try:
             self.client.commands_post(commands)
