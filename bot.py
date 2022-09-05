@@ -15,6 +15,7 @@ from space_tycoon_client.models.data import Data
 from space_tycoon_client.models.destination import Destination
 from space_tycoon_client.models.end_turn import EndTurn
 from space_tycoon_client.models.move_command import MoveCommand
+from space_tycoon_client.models.decommission_command import DecommissionCommand
 from space_tycoon_client.models import TradeCommand
 from space_tycoon_client.models.construct_command import ConstructCommand
 from space_tycoon_client.models.attack_command import AttackCommand
@@ -149,32 +150,36 @@ class Game:
         our_mother_id, _ = self._get_our_mothership()
         commands = {}
 
-        # attackers
-        if our_mother_id != "0":
-            for i in range(3 - total_fighter_count):
-                commands[our_mother_id] = ConstructCommand(ship_class="4")
-        if total_fighter_count >= 3:
-            can_build = False
+        # Best strategy before we have something clever - just sell shippers
+        for ship_id, ship in shippers.items():
+            commands[ship_id] = DecommissionCommand()
 
-        # trades
-
-        if len(enemy_duck_fighters.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_fighters, fighters)
-        elif len(enemy_duck_motherships.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_motherships, fighters)
-        elif len(enemy_fighters.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_fighters, fighters)
-        elif len(enemy_motherships.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_motherships, fighters)
-        elif len(enemy_ships.keys()) > 0:
-            attack_id = self._get_closest_ship_to_all_fighters(enemy_ships, fighters)
-
-        # send fighters to attack
-        for f_id, fighter in fighters.items():
-            commands[f_id] = AttackCommand(attack_id)
-        # send mothership to attack
-        if not can_build and our_mother_id != "0":
-            commands[our_mother_id] = AttackCommand(attack_id)
+        # # attackers
+        # if our_mother_id != "0":
+        #     for i in range(3 - total_fighter_count):
+        #         commands[our_mother_id] = ConstructCommand(ship_class="4")
+        # if total_fighter_count >= 3:
+        #     can_build = False
+        #
+        # # trades
+        #
+        # if len(enemy_duck_fighters.keys()) > 0:
+        #     attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_fighters, fighters)
+        # elif len(enemy_duck_motherships.keys()) > 0:
+        #     attack_id = self._get_closest_ship_to_all_fighters(enemy_duck_motherships, fighters)
+        # elif len(enemy_fighters.keys()) > 0:
+        #     attack_id = self._get_closest_ship_to_all_fighters(enemy_fighters, fighters)
+        # elif len(enemy_motherships.keys()) > 0:
+        #     attack_id = self._get_closest_ship_to_all_fighters(enemy_motherships, fighters)
+        # elif len(enemy_ships.keys()) > 0:
+        #     attack_id = self._get_closest_ship_to_all_fighters(enemy_ships, fighters)
+        #
+        # # send fighters to attack
+        # for f_id, fighter in fighters.items():
+        #     commands[f_id] = AttackCommand(attack_id)
+        # # send mothership to attack
+        # if not can_build and our_mother_id != "0":
+        #     commands[our_mother_id] = AttackCommand(attack_id)
 
         pprint(commands) if commands else None
         try:

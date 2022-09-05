@@ -15,4 +15,5 @@ jobs:
           host: 164.92.246.13
           username: root
           password: imF(_2AcG#*fbBn
-          script: whoami
+          script: |
+            echo "Hello world"
