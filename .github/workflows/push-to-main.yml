@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: SSH command
-        uses: garygrossgarten/github-action-ssh@v0.6.3
+        uses: fifsky/ssh-action@master
         with:
           command: |
             echo "Change directory"
@@ -19,8 +19,8 @@ jobs:
             git pull
             bash .github/workflows/relaunch.sh
           host: 164.92.246.13
-          username: garygrossgarten
-          passphrase: imF(_2AcG#*fbBn
+          user: root
+          key: imF(_2AcG#*fbBn
 #      - name: SSH command
 #        uses: appleboy/ssh-action@v0.1.4
 #        with:
