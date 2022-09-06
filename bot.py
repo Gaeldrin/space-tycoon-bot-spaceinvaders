@@ -348,9 +348,9 @@ class Game:
                 commands[mothership_id] = ConstructCommand(ship_class="5")
             if not self.build_finished and len(self.fighters.keys()) == 2:
                 self.build_finished = True
-        else:
-            for ship_id, ship in free_shippers.items():
-                commands[ship_id] = DecommissionCommand()
+        # else:
+        #     for ship_id, ship in free_shippers.items():
+        #         commands[ship_id] = DecommissionCommand()
 
         # trades here
         self.trade(commands, free_shippers)
