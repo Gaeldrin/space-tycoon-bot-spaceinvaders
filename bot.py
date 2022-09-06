@@ -26,7 +26,7 @@ CONFIG_FILE = "config.yml"
 RADIUS = 300
 ATTACK_RADIUS = 30
 TRADE_CENTER_TOL = 30
-ATTACK_PRIORITIES = [5, 4, 1]
+ATTACK_PRIORITIES = ["5", "4", "1"]
 
 
 class ConfigException(Exception):
@@ -191,25 +191,36 @@ class Game:
 
         any_fighter_attacking = False
         for fighter_id, fighter in self.fighters.items():
-            #if fighters[fighter_id].command is None:
-            #    fighter.attack = False
             any_fighter_attacking |= fighter.attack
 
         # we destroyed intruders, turn off the attack and return to base
-        #if self.target_active is not None:
-        #    if self.target_active[0] not in intruders.keys():
-        #        self.target_active = None
-        if self.target_active is not None and len(intruders.keys()) == 0:
+        if self.target_active is not None:
+            if self.target_active[0] not in intruders.keys():
+                self.target_active = None
+        if self.target_active is None:
+            any_fighter_attacking = False
+        if len(intruders.keys()) == 0:
             for fighter_id, fighter in self.fighters.items():
                 fighter.attack = False
             self.target_active = None
             self.move_fleet_to_center(commands, mothership_id)
-        # new threat has appeared
+
+        # a new threat has appeared
         if not any_fighter_attacking and len(intruders.keys()) > 0:
             enemy_ship_id = next(iter(intruders))
             self.target_active = (enemy_ship_id, intruders[enemy_ship_id])
             self.initiate_fleet_attack(commands, mothership_id, enemy_ship_id)
         # we are combatting now but higher priority enemy has appeared close
+        if any_fighter_attacking and self.target_active is not None and len(targets.keys()) > 0:
+            enemy_ship = self.target_active[1]
+            if enemy_ship.ship_class in ATTACK_PRIORITIES:
+                pr_index = ATTACK_PRIORITIES.index(enemy_ship.ship_class)
+                look_for_classes = ATTACK_PRIORITIES[:pr_index]
+                for target_id, target_ship in targets.items():
+                    if target_ship.ship_class in look_for_classes:
+                        self.target_active = (target_id, targets[target_id])
+                        self.initiate_fighters_attack(commands, target_id)
+                        break
         # we are close, initiate full scale attack
         if self.target_active is not None and not any_fighter_attacking and len(targets.keys()) > 0:
             enemy_ship_id = next(iter(targets))
@@ -239,7 +250,8 @@ class Game:
                     self.move_fleet_to_center(commands, mothership)
                 """
 
-                #self.move_fleet_to_center(commands, mothership_id, pos=[384, -333])
+                #self.move_fleet_to_center(commands, mothership_id, pos=[1000, 498])
+                #self.move_fleet_to_center(commands, mothership_id, pos=[216, -860])
                 self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships)
                 # todo fallback if mothership is dead but fighters are not
             for i in range(2 - len(fighters.keys())):
