@@ -1,3 +1,4 @@
+import collections
 import traceback
 from pprint import pprint
 from typing import Dict, Tuple
@@ -239,27 +240,29 @@ class Game:
         min_cargo = 4
 
         for ship_id, ship in shippers.items():
-            trades = {}
+            trades = collections.defaultdict([])
 
             "find what to buy"
-            if self.data.ships[ship_id].resources is None:
+            if not self.data.ships[ship_id].resources:
                 resource_to_buy = None
                 "iterate buy planets"
                 for planet_id, planet in self.data.planets.items():
                     "iterate resources"
-                    for resource_id, resource in planet.resources:
+                    for resource_id, resource in planet.resources.items():
                         "resource can be bought"
-                        if resource.buyPrice is not None and resource.amount > min_cargo:
-                            buy_cost = planet.resources[resource_id].buyPrice * min(10, planet.resources[resource_id].amount)
+                        if resource.buy_price and resource.amount > min_cargo:
+                            buy_cost = planet.resources[resource_id].buy_price * min(10, planet.resources[resource_id].amount)
                             buy_dist = get_dist(ship.position[0], ship.position[1], planet.position[0], planet.position[1])
                             "iterate sell planets"
                             for sell_planet_id, sell_planet in self.data.planets.items():
                                 "resource can be sold"
-                                if sell_planet.resources[resource_id] is not None and sell_planet.resources[resource_id].sellPrice is not None and sell_planet.resources[resource_id].amount > min_cargo:
-                                    sell_gain = sell_planet.resources[resource_id].sellPrice * min(10, planet.resources[resource_id].amount)
+                                if resource_id in sell_planet.resources and sell_planet.resources[resource_id].sell_price and sell_planet.resources[resource_id].amount > min_cargo:
+                                    sell_gain = sell_planet.resources[resource_id].sell_price * min(10, planet.resources[resource_id].amount)
                                     sell_dist = get_dist(planet.position[0], planet.position[1], sell_planet.position[0], sell_planet.position[1])
 
                                     ypt = (sell_gain - buy_cost) / (buy_dist + sell_dist)
+                                    if not trades[resource_id]:
+                                        trades[resource_id] = (ypt, planet_id)
                                     if ypt > trades[resource_id][0]:
                                         trades[resource_id] = (ypt, planet_id)
                                         resource_to_buy = resource_id
@@ -277,11 +280,12 @@ class Game:
 
             else:
                 "find place to sell"
+                print(self.data.ships[ship_id].resources)
                 resource_to_sell = list(self.data.ships[ship_id].resources.keys())[0]
                 for planet_id, planet in self.data.planets.items():
                     "4 neni optimalizovane"
-                    if planet.resources[resource_to_sell] is not None and planet.resources[resource_to_sell].sellPrice is not None and planet.resources[resource_to_sell].amount > min_cargo:
-                        ypt = planet.resources[resource_to_sell].sellPrice / get_dist(ship.position[0], ship.position[1], planet.position[0], planet.position[1])
+                    if resource_to_sell in planet.resources and planet.resources[resource_to_sell].sell_price and planet.resources[resource_to_sell].amount > min_cargo:
+                        ypt = planet.resources[resource_to_sell].sell_price / get_dist(ship.position[0], ship.position[1], planet.position[0], planet.position[1])
                         if ypt > trades[resource_to_sell][0]:
                             trades[resource_to_sell] = (ypt, planet_id)
 
