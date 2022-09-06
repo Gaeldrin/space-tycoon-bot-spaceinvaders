@@ -103,7 +103,7 @@ class Game:
 
         return my_ships
 
-    def _get_free_fighters(self, ship_class="4"):
+    def _get_free_ships(self, ship_class):
         my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in self.data.ships.items()
                                 if ship.player == self.player_id and ship.ship_class == ship_class and ship.command is None}
         #my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in self.data.ships.items()}
@@ -227,12 +227,74 @@ class Game:
             self.target_active = (enemy_ship_id, targets[enemy_ship_id])
             self.initiate_fighters_attack(commands, enemy_ship_id)
 
+    def trade(self, commands, shippers):
+        """
+        For each shipper chooses the trade with highest 'yield per tick'.
+
+        :return:
+        """
+
+        "4 neni optimalizovane"
+        min_cargo = 4
+
+        for ship_id, ship in shippers.items():
+            trades = {}
+
+            "find what to buy"
+            if self.data.ships[ship_id].resources is None:
+                resource_to_buy = None
+                "iterate buy planets"
+                for planet_id, planet in self.data.planets.items():
+                    "iterate resources"
+                    for resource_id, resource in planet.resources:
+                        "resource can be bought"
+                        if resource.buyPrice is not None and resource.amount > min_cargo:
+                            buy_cost = planet.resources[resource_id].buyPrice * min(10, planet.resources[resource_id].amount)
+                            buy_dist = get_dist(ship.position[0], ship.position[1], planet.position[0], planet.position[1])
+                            "iterate sell planets"
+                            for sell_planet_id, sell_planet in self.data.planets.items():
+                                "resource can be sold"
+                                if sell_planet.resources[resource_id] is not None and sell_planet.resources[resource_id].sellPrice is not None and sell_planet.resources[resource_id].amount > min_cargo:
+                                    sell_gain = sell_planet.resources[resource_id].sellPrice * min(10, planet.resources[resource_id].amount)
+                                    sell_dist = get_dist(planet.position[0], planet.position[1], sell_planet.position[0], sell_planet.position[1])
+
+                                    ypt = (sell_gain - buy_cost) / (buy_dist + sell_dist)
+                                    if ypt > trades[resource_id][0]:
+                                        trades[resource_id] = (ypt, planet_id)
+                                        resource_to_buy = resource_id
+
+                best_ypt = 0
+                best_planet_id = 0
+                for ypt, planet_id in trades:
+                    if ypt > best_ypt:
+                        best_ypt = ypt
+                        best_planet_id = planet_id
+
+                amount = min(ship.resources[resource_to_buy].amount, self.data.planets[trades[resource_to_buy][1]])
+                commands[ship_id] = TradeCommand(amount=amount, resource=resource_to_buy, target=best_planet_id)
+                print(f"Shipper {ship} has no cargo, goes to buy {resource_to_buy} to planet {best_planet_id} for {best_ypt} YPT.")
+
+            else:
+                "find place to sell"
+                resource_to_sell = list(self.data.ships[ship_id].resources.keys())[0]
+                for planet_id, planet in self.data.planets.items():
+                    "4 neni optimalizovane"
+                    if planet.resources[resource_to_sell] is not None and planet.resources[resource_to_sell].sellPrice is not None and planet.resources[resource_to_sell].amount > min_cargo:
+                        ypt = planet.resources[resource_to_sell].sellPrice / get_dist(ship.position[0], ship.position[1], planet.position[0], planet.position[1])
+                        if ypt > trades[resource_to_sell][0]:
+                            trades[resource_to_sell] = (ypt, planet_id)
+
+                amount = min(ship.resources[resource_to_sell].amount, self.data.planets[trades[resource_to_sell][1]])
+                commands[ship_id] = TradeCommand(amount=-amount, resource=resource_to_sell, target=planet_id)
+                print(f"Shipper {ship} has will sell to planet {planet_id} for {ypt*amount} total.")
+
+
     def game_logic(self):
         # todo throw all this away
         self.recreate_me()
 
         fighters = self._get_fighters(ship_class="5")
-        shipper_count, shippers = self._get_free_fighters(ship_class="3")
+        free_shipper_count, free_shippers = self._get_free_ships(ship_class="3")
         enemy_fighters = self._get_enemy_ships(ship_class="4")
         enemy_motherships = self._get_enemy_ships(ship_class="1")
         enemy_ships = self._get_enemy_ships(ship_class=None)
@@ -263,6 +325,7 @@ class Game:
                 commands[ship_id] = DecommissionCommand()
 
         # trades here
+        self.trade(commands, free_shippers)
 
         """
         if len(enemy_duck_fighters.keys()) > 0:
