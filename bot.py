@@ -23,8 +23,11 @@ from space_tycoon_client.models.ship import Ship
 from space_tycoon_client.models.static_data import StaticData
 from space_tycoon_client.rest import ApiException
 
-# CONFIG_FILE = "config_devserver.yml"
-CONFIG_FILE = "config.yml"
+debug = False
+if debug:
+    CONFIG_FILE = "config_devserver.yml"
+else:
+    CONFIG_FILE = "config.yml"
 RADIUS = 250
 ATTACK_RADIUS = 70
 TRADE_CENTER_TOL = 30
@@ -266,7 +269,8 @@ class Game:
 
         for ship_id, ship in shippers.items():
             trades = collections.defaultdict(tuple)
-            print(f"searching trades for ship {ship}")
+            if debug:
+                print(f"searching trades for ship {ship}")
 
             "find what to buy"
             if not self.data.ships[ship_id].resources:
@@ -315,7 +319,8 @@ class Game:
                 if best_resource_id:
                     amount = min(self.data.planets[trades[best_resource_id][1]].resources[best_resource_id].amount, 10)
                     commands[ship_id] = TradeCommand(amount=amount, resource=best_resource_id, target=best_planet_id)
-                    print(f"Shipper {ship} has no cargo, goes to buy {best_resource_id} to planet {best_planet_id} for {best_ypt} YPT.")
+                    if debug:
+                        print(f"Shipper {ship} has no cargo, goes to buy {best_resource_id} to planet {best_planet_id} for {best_ypt} YPT.")
 
                     "fast hack to separate the shippers by at least a tick"
                     return
@@ -323,7 +328,8 @@ class Game:
 
             else:
                 "find place to sell"
-                print(self.data.ships[ship_id].resources)
+                if debug:
+                    print(self.data.ships[ship_id].resources)
                 resource_to_sell = list(self.data.ships[ship_id].resources.keys())[0]
                 planet_to_sell = None
                 for planet_id, planet in self.data.planets.items():
@@ -339,7 +345,8 @@ class Game:
 
                 amount = ship.resources[resource_to_sell]["amount"]
                 commands[ship_id] = TradeCommand(amount=-amount, resource=resource_to_sell, target=planet_to_sell)
-                print(f"Shipper {ship} has will sell to planet {planet_to_sell} for {ypt*amount} total.")
+                if debug:
+                    print(f"Shipper {ship} has will sell to planet {planet_to_sell} for {ypt*amount} total.")
 
 
     def game_logic(self):
