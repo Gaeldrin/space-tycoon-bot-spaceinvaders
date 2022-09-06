@@ -364,7 +364,7 @@ class Game:
         self._update_shippers_center(free_shippers)
 
         if mothership_id != 0:
-            need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="5", count=5)
+            need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="5", count=2)
             self._heal_defenders_if_damaged(commands, fighters)
             if not need_build:
                 """
