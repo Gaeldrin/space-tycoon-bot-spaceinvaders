@@ -14,7 +14,7 @@ from space_tycoon_client.models.data import Data
 from space_tycoon_client.models.destination import Destination
 from space_tycoon_client.models.end_turn import EndTurn
 from space_tycoon_client.models.move_command import MoveCommand
-from space_tycoon_client.models import TradeCommand, DecommissionCommand
+from space_tycoon_client.models import TradeCommand, DecommissionCommand, RepairCommand
 from space_tycoon_client.models.construct_command import ConstructCommand
 from space_tycoon_client.models.attack_command import AttackCommand
 from space_tycoon_client.models.player import Player
@@ -25,10 +25,14 @@ from space_tycoon_client.rest import ApiException
 
 # CONFIG_FILE = "config_devserver.yml"
 CONFIG_FILE = "config.yml"
-RADIUS = 300
+RADIUS = 250
 ATTACK_RADIUS = 70
 TRADE_CENTER_TOL = 30
 ATTACK_PRIORITIES = ["5", "4", "1"]
+SHIP_LIFES = {
+    "4": 150,
+    "5": 250,
+}
 
 
 class ConfigException(Exception):
@@ -36,8 +40,12 @@ class ConfigException(Exception):
 
 
 class Fighter:
-    def __init__(self, idf):
+    def __init__(self, idf, ship_class):
         self.id = idf
+        self.ship_class = ship_class
+        self.maximum_life = 0
+        if ship_class in SHIP_LIFES:
+            self.maximum_life = SHIP_LIFES[ship_class]
         self.attack = False
 
 
@@ -53,10 +61,9 @@ class Game:
         self.tick = self.data.current_tick.tick
 
         # dynamic fleet values
-        self.fighters = {}
+        self.active_defenders = {}
         self.shippers_center = [0, 0]  # will be center of shippers for now
         self.target_active: Optional[Tuple] = None
-        self.build_finished = False
 
         # this part is custom logic, feel free to edit / delete
         if self.player_id not in self.data.players:
@@ -95,13 +102,6 @@ class Game:
     def _get_fighters(self, ship_class="4"):
         my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in
                                 self.data.ships.items() if ship.player == self.player_id and ship.ship_class == ship_class}
-        if ship_class == "5":  # sync all fighters into self.fighters
-            for ship_id, ship in my_ships.items():
-                if ship_id not in self.fighters:
-                    self.fighters[ship_id] = Fighter(ship_id)
-            for ship_id, ship in self.fighters.items():
-                if ship_id not in my_ships:
-                    del self.fighters[ship_id]
 
         return my_ships
 
@@ -165,11 +165,11 @@ class Game:
 
     def initiate_fleet_attack(self, commands, mothership_id, attack_id):
         commands[mothership_id] = AttackCommand(attack_id)
-        for fighter in self.fighters.values():
+        for fighter in self.active_defenders.values():
             commands[fighter.id] = MoveCommand(Destination(target=mothership_id))
 
     def initiate_fighters_attack(self, commands, attack_id):
-        for fighter in self.fighters.values():
+        for fighter in self.active_defenders.values():
             commands[fighter.id] = AttackCommand(attack_id)
             fighter.attack = True
 
@@ -179,7 +179,7 @@ class Game:
             if pos[0] == -10000:
                 return
         commands[mothership_id] = MoveCommand(Destination(coordinates=pos))
-        for fighter in self.fighters.values():
+        for fighter in self.active_defenders.values():
             commands[fighter.id] = MoveCommand(Destination(target=mothership_id))
 
     def hadrian_wall(self, commands, mothership_id, mothership, fighters, enemy_ships):
@@ -188,11 +188,11 @@ class Game:
         When on sight (ATTACK_RADIUS), fighters surrounding our motherships are sent into battle.
         """
 
-        intruders = find_ships_in_radius(mothership.position, RADIUS, enemy_ships)
-        targets = find_ships_in_radius(mothership.position, ATTACK_RADIUS, enemy_ships)
+        intruders = find_ships_in_radius(mothership.position, RADIUS, enemy_ships, exclude_classes=set("3"))
+        targets = find_ships_in_radius(mothership.position, ATTACK_RADIUS, enemy_ships, exclude_classes=set("3"))
 
         any_fighter_attacking = False
-        for fighter_id, fighter in self.fighters.items():
+        for fighter_id, fighter in self.active_defenders.items():
             any_fighter_attacking |= fighter.attack
 
         # we destroyed intruders, turn off the attack and return to base
@@ -202,7 +202,7 @@ class Game:
         if self.target_active is None:
             any_fighter_attacking = False
         if len(intruders.keys()) == 0:
-            for fighter_id, fighter in self.fighters.items():
+            for fighter_id, fighter in self.active_defenders.items():
                 fighter.attack = False
             self.target_active = None
             self.move_fleet_to_center(commands, mothership_id)
@@ -228,6 +228,31 @@ class Game:
             enemy_ship_id = next(iter(targets))
             self.target_active = (enemy_ship_id, targets[enemy_ship_id])
             self.initiate_fighters_attack(commands, enemy_ship_id)
+
+    def _update_active_defenders(self, commands, fighters, mothership_id, ship_class, count):
+        for ship_id, ship in self.active_defenders.items():
+            if ship_id not in fighters:
+                del self.active_defenders[ship_id]
+
+        need_build = False
+        if len(self.active_defenders.keys()) < count and len(fighters.keys()) > 0:
+            for fighter_id, fighter in fighters.items():
+                if fighter.ship_class == ship_class and fighter_id not in self.active_defenders:
+                    self.active_defenders[fighter_id] = Fighter(fighter_id, ship_class)
+                if len(self.active_defenders.keys()) == count:
+                    break
+
+        if len(self.active_defenders.keys()) < count:
+            need_build = True
+            commands[mothership_id] = ConstructCommand(ship_class=ship_class)
+
+        return need_build
+
+    def _heal_defenders_if_damaged(self, commands, fighters):
+        for ship_id, fighter in self.active_defenders.items():
+            ship = fighters[ship_id]
+            if ship.life <= fighter.maximum_life - 150:
+                commands[ship_id] = RepairCommand()
 
     def trade(self, commands, shippers):
         """
@@ -328,7 +353,9 @@ class Game:
         self._update_shippers_center(free_shippers)
 
         if mothership_id != 0:
-            if self.build_finished:
+            need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="5", count=2)
+            self._heal_defenders_if_damaged(commands, fighters)
+            if not need_build:
                 """
                 if get_dist(
                         self.shippers_center[0], self.shippers_center[1], mothership.position[0], mothership.position[1]
@@ -340,13 +367,6 @@ class Game:
                 #self.move_fleet_to_center(commands, mothership_id, pos=[216, -860])
                 self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships)
                 # todo fallback if mothership is dead but fighters are not
-            for i in range(2 - len(fighters.keys())):
-                commands[mothership_id] = ConstructCommand(ship_class="5")
-            if not self.build_finished and len(self.fighters.keys()) == 2:
-                self.build_finished = True
-        else:
-            for ship_id, ship in free_shippers.items():
-                commands[ship_id] = DecommissionCommand()
 
         # trades here
         self.trade(commands, free_shippers)
@@ -436,10 +456,11 @@ def get_enemy_ships(ship_items, ship_class=None, ship_player=None) -> dict:
     return ships
 
 
-def find_ships_in_radius(pos: Tuple[float, float], radius, enemy_ships):
+def find_ships_in_radius(pos: Tuple[float, float], radius, enemy_ships, exclude_classes=set()):
     found_ships = {}
     for ship_id, ship in enemy_ships.items():
-        if get_dist(pos[0], pos[1], ship.position[0], ship.position[1]) <= radius:
+        if ship.ship_class not in exclude_classes and \
+                get_dist(pos[0], pos[1], ship.position[0], ship.position[1]) <= radius:
             found_ships[ship_id] = ship
 
     return found_ships
