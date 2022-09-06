@@ -26,6 +26,7 @@ CONFIG_FILE = "config.yml"
 RADIUS = 300
 ATTACK_RADIUS = 30
 TRADE_CENTER_TOL = 30
+ATTACK_PRIORITIES = [5, 4, 1]
 
 
 class ConfigException(Exception):
@@ -52,7 +53,7 @@ class Game:
         # dynamic fleet values
         self.fighters = {}
         self.shippers_center = [0, 0]  # will be center of shippers for now
-        self.threat_active = False
+        self.target_active: Optional[Tuple] = None
         self.build_finished = False
 
         # this part is custom logic, feel free to edit / delete
@@ -92,7 +93,7 @@ class Game:
     def _get_fighters(self, ship_class="4"):
         my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in
                                 self.data.ships.items() if ship.player == self.player_id and ship.ship_class == ship_class}
-        if ship_class == "4":  # sync all fighters into self.fighters
+        if ship_class == "5":  # sync all fighters into self.fighters
             for ship_id, ship in my_ships.items():
                 if ship_id not in self.fighters:
                     self.fighters[ship_id] = Fighter(ship_id)
@@ -190,30 +191,36 @@ class Game:
 
         any_fighter_attacking = False
         for fighter_id, fighter in self.fighters.items():
-            if fighters[fighter_id].command is None:
-                fighter.attack = False
-            any_fighter_attacking &= fighter.attack
+            #if fighters[fighter_id].command is None:
+            #    fighter.attack = False
+            any_fighter_attacking |= fighter.attack
 
         # we destroyed intruders, turn off the attack and return to base
-        if self.threat_active and len(intruders.keys()) == 0:
-            self.threat_active = False
+        #if self.target_active is not None:
+        #    if self.target_active[0] not in intruders.keys():
+        #        self.target_active = None
+        if self.target_active is not None and len(intruders.keys()) == 0:
+            for fighter_id, fighter in self.fighters.items():
+                fighter.attack = False
+            self.target_active = None
             self.move_fleet_to_center(commands, mothership_id)
         # new threat has appeared
         if not any_fighter_attacking and len(intruders.keys()) > 0:
-            self.threat_active = True
-            self.initiate_fleet_attack(commands, mothership_id, next(iter(intruders)))
+            enemy_ship_id = next(iter(intruders))
+            self.target_active = (enemy_ship_id, intruders[enemy_ship_id])
+            self.initiate_fleet_attack(commands, mothership_id, enemy_ship_id)
         # we are combatting now but higher priority enemy has appeared close
-        #if self.threat_active and any_fighter_attacking and len(targets.keys()) > 0:
-        #    self.redirect_attack(commands, next(iter(targets)))
         # we are close, initiate full scale attack
-        if self.threat_active and not any_fighter_attacking and len(targets.keys()) > 0:
-            self.initiate_fighters_attack(commands, next(iter(targets)))
+        if self.target_active is not None and not any_fighter_attacking and len(targets.keys()) > 0:
+            enemy_ship_id = next(iter(targets))
+            self.target_active = (enemy_ship_id, targets[enemy_ship_id])
+            self.initiate_fighters_attack(commands, enemy_ship_id)
 
     def game_logic(self):
         # todo throw all this away
         self.recreate_me()
 
-        fighters = self._get_fighters(ship_class="4")
+        fighters = self._get_fighters(ship_class="5")
         shipper_count, shippers = self._get_free_fighters(ship_class="3")
         enemy_fighters = self._get_enemy_ships(ship_class="4")
         enemy_motherships = self._get_enemy_ships(ship_class="1")
@@ -223,7 +230,7 @@ class Game:
 
         self._update_shippers_center(shippers)
 
-        if mothership_id != "0":
+        if mothership_id != 0:
             if self.build_finished:
                 """
                 if get_dist(
@@ -232,12 +239,12 @@ class Game:
                     self.move_fleet_to_center(commands, mothership)
                 """
 
-                #self.move_fleet_to_center(commands, mothership_id, pos=[461, -924])
+                #self.move_fleet_to_center(commands, mothership_id, pos=[384, -333])
                 self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships)
                 # todo fallback if mothership is dead but fighters are not
-            for i in range(3 - len(fighters.keys())):
-                commands[mothership_id] = ConstructCommand(ship_class="4")
-            if not self.build_finished and len(self.fighters.keys()) == 3:
+            for i in range(2 - len(fighters.keys())):
+                commands[mothership_id] = ConstructCommand(ship_class="5")
+            if not self.build_finished and len(self.fighters.keys()) == 2:
                 self.build_finished = True
         else:
             for ship_id, ship in shippers.items():

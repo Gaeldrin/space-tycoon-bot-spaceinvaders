@@ -176,13 +176,13 @@ class Game:
         # todo throw all this away
         self.recreate_me()
 
-        fighter_count, shippers = self._get_free_fighters(ship_class="4")
+        fighter_count, shippers = self._get_free_fighters(ship_class="5")
         mothership_id, mothership = self._get_our_mothership()
         commands = {}
 
-        for i in range(3 - fighter_count):
-            commands[mothership_id] = ConstructCommand(ship_class="4")
-        if not self.build_finished and fighter_count == 3:
+        for i in range(2 - fighter_count):
+            commands[mothership_id] = ConstructCommand(ship_class="5")
+        if not self.build_finished and fighter_count == 2:
             self.build_finished = True
 
         for ship_id, ship in shippers.items():
