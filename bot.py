@@ -315,7 +315,11 @@ class Game:
                 if best_resource_id:
                     amount = min(self.data.planets[trades[best_resource_id][1]].resources[best_resource_id].amount, 10)
                     commands[ship_id] = TradeCommand(amount=amount, resource=best_resource_id, target=best_planet_id)
-                print(f"Shipper {ship} has no cargo, goes to buy {best_resource_id} to planet {best_planet_id} for {best_ypt} YPT.")
+                    print(f"Shipper {ship} has no cargo, goes to buy {best_resource_id} to planet {best_planet_id} for {best_ypt} YPT.")
+
+                    "fast hack to separate the shippers by at least a tick"
+                    return
+
 
             else:
                 "find place to sell"
