@@ -22,6 +22,7 @@ from space_tycoon_client.models.ship import Ship
 from space_tycoon_client.models.static_data import StaticData
 from space_tycoon_client.rest import ApiException
 
+# CONFIG_FILE = "config_devserver.yml"
 CONFIG_FILE = "config.yml"
 RADIUS = 300
 ATTACK_RADIUS = 70
