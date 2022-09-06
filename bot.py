@@ -24,7 +24,7 @@ from space_tycoon_client.rest import ApiException
 
 CONFIG_FILE = "config.yml"
 RADIUS = 300
-ATTACK_RADIUS = 30
+ATTACK_RADIUS = 70
 TRADE_CENTER_TOL = 30
 ATTACK_PRIORITIES = ["5", "4", "1"]
 
