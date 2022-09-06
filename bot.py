@@ -302,7 +302,7 @@ class Game:
         mothership_id, mothership = self._get_our_mothership()
         commands = {}
 
-        self._update_shippers_center(shippers)
+        self._update_shippers_center(free_shippers)
 
         if mothership_id != 0:
             if self.build_finished:
@@ -322,7 +322,7 @@ class Game:
             if not self.build_finished and len(self.fighters.keys()) == 2:
                 self.build_finished = True
         else:
-            for ship_id, ship in shippers.items():
+            for ship_id, ship in free_shippers.items():
                 commands[ship_id] = DecommissionCommand()
 
         # trades here
