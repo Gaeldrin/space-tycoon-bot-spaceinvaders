@@ -108,6 +108,12 @@ class Game:
 
         return my_ships
 
+    def _get_ships(self, ship_class):
+        my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in self.data.ships.items()
+                                if ship.player == self.player_id and ship.ship_class == ship_class}
+
+        return my_ships
+
     def _get_free_ships(self, ship_class):
         my_ships: Dict[Ship] = {ship_id: ship for ship_id, ship in self.data.ships.items()
                                 if ship.player == self.player_id and ship.ship_class == ship_class and ship.command is None}
@@ -268,6 +274,10 @@ class Game:
         min_cargo = 4
 
         for ship_id, ship in shippers.items():
+            "verify if the ship is moving"
+            if ship.position[0] != ship.prev_position[0] or ship.position[1] != ship.prev_position[1]:
+                continue
+
             trades = collections.defaultdict(tuple)
             if debug:
                 print(f"searching trades for ship {ship}")
@@ -354,14 +364,14 @@ class Game:
         self.recreate_me()
 
         fighters = self._get_fighters(ship_class="5")
-        free_shipper_count, free_shippers = self._get_free_ships(ship_class="3")
+        shippers = self._get_ships(ship_class="3")
         enemy_fighters = self._get_enemy_ships(ship_class="4")
         enemy_motherships = self._get_enemy_ships(ship_class="1")
         enemy_ships = self._get_enemy_ships(ship_class=None)
         mothership_id, mothership = self._get_our_mothership()
         commands = {}
 
-        self._update_shippers_center(free_shippers)
+        self._update_shippers_center(shippers)
 
         if mothership_id != 0:
             need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="5", count=2)
@@ -380,7 +390,7 @@ class Game:
                 # todo fallback if mothership is dead but fighters are not
 
         # trades here
-        self.trade(commands, free_shippers)
+        self.trade(commands, shippers)
 
         """
         if len(enemy_duck_fighters.keys()) > 0:
