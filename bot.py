@@ -157,9 +157,9 @@ class Game:
 
         return closest_id
 
-    def _attack_on_the_ship(self, commands, attack_id, fighters):
-        for f_id, fighter in fighters.items():
-            commands[f_id] = AttackCommand(attack_id)
+    # def _attack_on_the_ship(self, commands, attack_id, fighters):
+    #     for f_id, fighter in fighters.items():
+    #         commands[f_id] = AttackCommand(attack_id)
 
     def _update_shippers_center(self, ships):
         sum_x = 0
@@ -173,16 +173,28 @@ class Game:
         self.shippers_center = [sum_x / ship_count, sum_y / ship_count]
 
     def initiate_fleet_attack(self, commands, mothership_id, attack_id):
+        "skip when in manual mode"
+        if self.data.ships[mothership_id].name == "RAGE":
+            return
+
         commands[mothership_id] = AttackCommand(attack_id)
         for fighter in self.active_defenders.values():
             commands[fighter.id] = MoveCommand(Destination(target=mothership_id))
 
     def initiate_fighters_attack(self, commands, attack_id):
         for fighter in self.active_defenders.values():
+            "skip when in manual mode"
+            if fighter.name == "RAGE":
+                continue
+
             commands[fighter.id] = AttackCommand(attack_id)
             fighter.attack = True
 
     def move_fleet_to_center(self, commands, mothership_id, pos=None):
+        "skip when in manual mode"
+        if self.data.ships[mothership_id].name == "RAGE":
+            return
+
         if pos is None:
             pos = [int(self.shippers_center[0]), int(self.shippers_center[1])]
             if pos[0] == -10000:
@@ -377,6 +389,7 @@ class Game:
             need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="5", count=2)
             self._heal_defenders_if_damaged(commands, fighters)
             if not need_build:
+                commands[mothership_id] = ConstructCommand(ship_class="3")
                 """
                 if get_dist(
                         self.shippers_center[0], self.shippers_center[1], mothership.position[0], mothership.position[1]
