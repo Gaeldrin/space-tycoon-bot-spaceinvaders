@@ -14,7 +14,7 @@ from space_tycoon_client.models.data import Data
 from space_tycoon_client.models.destination import Destination
 from space_tycoon_client.models.end_turn import EndTurn
 from space_tycoon_client.models.move_command import MoveCommand
-from space_tycoon_client.models import TradeCommand, DecommissionCommand, RepairCommand
+from space_tycoon_client.models import TradeCommand, DecommissionCommand, RepairCommand, StopCommand
 from space_tycoon_client.models.construct_command import ConstructCommand
 from space_tycoon_client.models.attack_command import AttackCommand
 from space_tycoon_client.models.player import Player
@@ -23,7 +23,8 @@ from space_tycoon_client.models.ship import Ship
 from space_tycoon_client.models.static_data import StaticData
 from space_tycoon_client.rest import ApiException
 
-debug = False
+debug = True
+trace = False
 if debug:
     CONFIG_FILE = "config_devserver.yml"
 else:
@@ -275,6 +276,27 @@ class Game:
             if ship.life <= fighter.maximum_life - 150:
                 commands[ship_id] = RepairCommand()
 
+    def build_ships(self, commands, mothership_id):
+        """
+        Builds extra shippers if we have money and small number of shippers
+
+        :param commands:
+        :return:
+        """
+
+        shipper_target = 30
+        shipper_count = len(self._get_ships("3").keys())
+
+        repair_reserve = 1000000
+
+        if 4 < self.tick < 50:
+            commands[mothership_id] = ConstructCommand(ship_class="3")
+            return
+
+        if self.data.players[self.player_id].net_worth.money > repair_reserve and shipper_count < shipper_target:
+            commands[mothership_id] = ConstructCommand(ship_class="3")
+
+
     def trade(self, commands, shippers):
         """
         For each shipper chooses the trade with highest 'yield per tick'.
@@ -284,6 +306,7 @@ class Game:
 
         "4 neni optimalizovane"
         min_cargo = 4
+        buy_commands_issued = 0
 
         for ship_id, ship in shippers.items():
             "verify if the ship is moving"
@@ -291,7 +314,7 @@ class Game:
                 continue
 
             trades = collections.defaultdict(tuple)
-            if debug:
+            if trace:
                 print(f"searching trades for ship {ship}")
 
             "find what to buy"
@@ -341,17 +364,17 @@ class Game:
                 if best_resource_id:
                     amount = min(self.data.planets[trades[best_resource_id][1]].resources[best_resource_id].amount, 10)
                     commands[ship_id] = TradeCommand(amount=amount, resource=best_resource_id, target=best_planet_id)
-                    if debug:
+                    buy_commands_issued += 1
+                    if trace:
                         print(f"Shipper {ship} has no cargo, goes to buy {best_resource_id} to planet {best_planet_id} for {best_ypt} YPT.")
 
                     "fast hack to separate the shippers by at least a tick"
-                    return
+                    if buy_commands_issued > 2:
+                        return
 
 
             else:
                 "find place to sell"
-                if debug:
-                    print(self.data.ships[ship_id].resources)
                 resource_to_sell = list(self.data.ships[ship_id].resources.keys())[0]
                 planet_to_sell = None
                 for planet_id, planet in self.data.planets.items():
@@ -367,9 +390,21 @@ class Game:
 
                 amount = ship.resources[resource_to_sell]["amount"]
                 commands[ship_id] = TradeCommand(amount=-amount, resource=resource_to_sell, target=planet_to_sell)
-                if debug:
+                if trace:
                     print(f"Shipper {ship} has will sell to planet {planet_to_sell} for {ypt*amount} total.")
 
+    def unblock_stuck_shippers(self, commands):
+        """
+
+        :param commands:
+        :return:
+        """
+        for shipper_id, shipper in self._get_ships(ship_class="3").items():
+            if shipper.position[0] == shipper.prev_position[0] and shipper.position[1] == shipper.prev_position[1] and shipper.command is not None:
+                for planet in self.data.planets.values():
+                    if planet.position[0] == shipper.position[0] and planet.position[1] == shipper.position[1]:
+                        commands[shipper_id] = StopCommand()
+                        break
 
     def game_logic(self):
         # todo throw all this away
@@ -388,8 +423,7 @@ class Game:
         if mothership_id != 0:
             need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="5", count=2)
             self._heal_defenders_if_damaged(commands, fighters)
-            if not need_build:
-                commands[mothership_id] = ConstructCommand(ship_class="3")
+            if not need_build or self.data.players[self.player_id].net_worth.money < 2000000:
                 """
                 if get_dist(
                         self.shippers_center[0], self.shippers_center[1], mothership.position[0], mothership.position[1]
@@ -402,8 +436,13 @@ class Game:
                 self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships)
                 # todo fallback if mothership is dead but fighters are not
 
+        # build
+        self.build_ships(commands, mothership_id)
+
         # trades here
         self.trade(commands, shippers)
+
+        self.unblock_stuck_shippers(commands)
 
         """
         if len(enemy_duck_fighters.keys()) > 0:

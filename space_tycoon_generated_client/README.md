@@ -188,7 +188,7 @@ except ApiException as e:
 
 ## Documentation for API Endpoints
 
-All URIs are relative to *https://space-tycoon.garage-trip.cz/api/*
+All URIs are relative to *https://space-tycoon.garage-trip.cz/*
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------

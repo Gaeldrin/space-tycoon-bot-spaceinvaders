@@ -1,6 +1,6 @@
 # space_tycoon_client.GameApi
 
-All URIs are relative to *https://space-tycoon.garage-trip.cz/api/*
+All URIs are relative to *https://space-tycoon.garage-trip.cz/*
 
 Method | HTTP request | Description
 ------------- | ------------- | -------------

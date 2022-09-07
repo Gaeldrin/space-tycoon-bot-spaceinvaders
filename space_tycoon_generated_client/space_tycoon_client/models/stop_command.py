@@ -28,14 +28,40 @@ class StopCommand(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'type': 'str'
     }
 
     attribute_map = {
+        'type': 'type'
     }
 
-    def __init__(self):  # noqa: E501
+    def __init__(self, type='stop'):  # noqa: E501
         """StopCommand - a model defined in Swagger"""  # noqa: E501
+        self._type = None
         self.discriminator = None
+        if type is not None:
+            self.type = type
+
+    @property
+    def type(self):
+        """Gets the type of this StopCommand.  # noqa: E501
+
+
+        :return: The type of this StopCommand.  # noqa: E501
+        :rtype: str
+        """
+        return self._type
+
+    @type.setter
+    def type(self, type):
+        """Sets the type of this StopCommand.
+
+
+        :param type: The type of this StopCommand.  # noqa: E501
+        :type: str
+        """
+
+        self._type = type
 
     def to_dict(self):
         """Returns the model properties as a dict"""
