@@ -23,7 +23,7 @@ from space_tycoon_client.models.ship import Ship
 from space_tycoon_client.models.static_data import StaticData
 from space_tycoon_client.rest import ApiException
 
-debug = True
+debug = False
 trace = False
 if debug:
     CONFIG_FILE = "config_devserver.yml"
@@ -284,14 +284,10 @@ class Game:
         :return:
         """
 
-        shipper_target = 30
+        shipper_target = 10
         shipper_count = len(self._get_ships("3").keys())
 
         repair_reserve = 1000000
-
-        if 4 < self.tick < 50:
-            commands[mothership_id] = ConstructCommand(ship_class="3")
-            return
 
         if self.data.players[self.player_id].net_worth.money > repair_reserve and shipper_count < shipper_target:
             commands[mothership_id] = ConstructCommand(ship_class="3")
@@ -307,6 +303,7 @@ class Game:
         "4 neni optimalizovane"
         min_cargo = 4
         buy_commands_issued = 0
+        max_concurrent_commands = 1
 
         for ship_id, ship in shippers.items():
             "verify if the ship is moving"
@@ -319,7 +316,6 @@ class Game:
 
             "find what to buy"
             if not self.data.ships[ship_id].resources:
-                resource_to_buy = None
                 "iterate buy planets"
                 planet_count = 0
                 sell_planet_count = 0
@@ -351,16 +347,17 @@ class Game:
                                         trades[resource_id] = (ypt, planet_id)
                                     if ypt > trades[resource_id][0]:
                                         trades[resource_id] = (ypt, planet_id)
-                                        resource_to_buy = resource_id
                                     if ypt > best_ypt:
                                         best_ypt = ypt
                                         best_planet_id = planet_id
                                         best_resource_id = resource_id
 
-                # for ypt, planet_id in trades.values():
-                #     if ypt > best_ypt:
-                #         best_ypt = ypt
-                #         best_planet_id = planet_id
+                # [resource_id, [ypt, planed_id]]
+                sorted_trades = sorted(trades.items(), key=lambda x: x[1][0])
+                # sorted_trades[1][0] - res
+                # sorted_trades[1][1][0] - ypt
+                # sorted_trades[1][1][1] - planet
+
                 if best_resource_id:
                     amount = min(self.data.planets[trades[best_resource_id][1]].resources[best_resource_id].amount, 10)
                     commands[ship_id] = TradeCommand(amount=amount, resource=best_resource_id, target=best_planet_id)
@@ -369,7 +366,7 @@ class Game:
                         print(f"Shipper {ship} has no cargo, goes to buy {best_resource_id} to planet {best_planet_id} for {best_ypt} YPT.")
 
                     "fast hack to separate the shippers by at least a tick"
-                    if buy_commands_issued > 2:
+                    if buy_commands_issued == max_concurrent_commands:
                         return
 
 
@@ -400,11 +397,8 @@ class Game:
         :return:
         """
         for shipper_id, shipper in self._get_ships(ship_class="3").items():
-            if shipper.position[0] == shipper.prev_position[0] and shipper.position[1] == shipper.prev_position[1] and shipper.command is not None:
-                for planet in self.data.planets.values():
-                    if planet.position[0] == shipper.position[0] and planet.position[1] == shipper.position[1]:
-                        commands[shipper_id] = StopCommand()
-                        break
+            if shipper.position[0] == shipper.prev_position[0] and shipper.position[1] == shipper.prev_position[1] and shipper.command is not None and shipper.command.type == "trade":
+                commands[shipper_id] = StopCommand()
 
     def game_logic(self):
         # todo throw all this away
