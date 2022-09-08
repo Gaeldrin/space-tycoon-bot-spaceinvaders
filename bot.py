@@ -303,7 +303,7 @@ class Game:
         "4 neni optimalizovane"
         min_cargo = 4
         buy_commands_issued = 0
-        max_concurrent_commands = 1
+        max_concurrent_commands = 2
 
         for ship_id, ship in shippers.items():
             "verify if the ship is moving"
@@ -429,6 +429,9 @@ class Game:
                 #self.move_fleet_to_center(commands, mothership_id, pos=[216, -860])
                 self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships)
                 # todo fallback if mothership is dead but fighters are not
+        else:
+            for ship_id, ship in shippers.items():
+                commands[ship_id] = DecommissionCommand()
 
         # build
         self.build_ships(commands, mothership_id)
