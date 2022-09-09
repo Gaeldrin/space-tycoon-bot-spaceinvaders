@@ -68,6 +68,7 @@ class Game:
         self.active_defenders = {}
         self.shippers_center = [0, 0]  # will be center of shippers for now
         self.target_active: Optional[Tuple] = None
+        self.ticks_from_last_repair = 0
 
         # this part is custom logic, feel free to edit / delete
         if self.player_id not in self.data.players:
@@ -175,8 +176,8 @@ class Game:
 
     def initiate_fleet_attack(self, commands, mothership_id, attack_id):
         "skip when in manual mode"
-        if self.data.ships[mothership_id].name == "RAGE":
-            return
+        #if self.data.ships[mothership_id].name == "RAGE":
+        #    return
 
         commands[mothership_id] = AttackCommand(attack_id)
         for fighter in self.active_defenders.values():
@@ -185,33 +186,33 @@ class Game:
     def initiate_fighters_attack(self, commands, attack_id):
         for fighter in self.active_defenders.values():
             "skip when in manual mode"
-            if fighter.name == "RAGE":
-                continue
+            #if fighter.name == "RAGE":
+            #    continue
 
             commands[fighter.id] = AttackCommand(attack_id)
             fighter.attack = True
 
-    def move_fleet_to_center(self, commands, mothership_id, pos=None):
+    def move_fleet_to_position(self, commands, mothership_id, pos=None):
         "skip when in manual mode"
-        if self.data.ships[mothership_id].name == "RAGE":
-            return
+        #if self.data.ships[mothership_id].name == "RAGE":
+        #    return
 
-        if pos is None:
-            pos = [int(self.shippers_center[0]), int(self.shippers_center[1])]
-            if pos[0] == -10000:
-                return
         commands[mothership_id] = MoveCommand(Destination(coordinates=pos))
         for fighter in self.active_defenders.values():
             commands[fighter.id] = MoveCommand(Destination(target=mothership_id))
 
-    def hadrian_wall(self, commands, mothership_id, mothership, fighters, enemy_ships):
+    def hadrian_wall(self, commands, mothership_id, mothership, fighters, enemy_ships, exclude_players=set()):
         """
         Attacks intruders in given RADIUS by sending our mothership.
         When on sight (ATTACK_RADIUS), fighters surrounding our motherships are sent into battle.
         """
 
-        intruders = find_ships_in_radius(mothership.position, RADIUS, enemy_ships, exclude_classes=set("3"))
-        targets = find_ships_in_radius(mothership.position, ATTACK_RADIUS, enemy_ships, exclude_classes=set("3"))
+        intruders = find_ships_in_radius(
+            mothership.position, RADIUS, enemy_ships, exclude_classes=set("3"), exclude_players=exclude_players
+        )
+        targets = find_ships_in_radius(
+            mothership.position, ATTACK_RADIUS, enemy_ships, exclude_classes=set("3"), exclude_players=exclude_players
+        )
 
         any_fighter_attacking = False
         for fighter_id, fighter in self.active_defenders.items():
@@ -227,7 +228,16 @@ class Game:
             for fighter_id, fighter in self.active_defenders.items():
                 fighter.attack = False
             self.target_active = None
-            self.move_fleet_to_center(commands, mothership_id)
+
+            # move ships back to protect shipment
+            """
+            if self.data.ships[mothership_id].name != "RAGE":
+                pos = [int(self.shippers_center[0]), int(self.shippers_center[1])]
+                if pos[0] == -10000:
+                    return
+
+                self.move_fleet_to_position(commands, mothership_id, pos=pos)
+            """
 
         # a new threat has appeared
         if not any_fighter_attacking and len(intruders.keys()) > 0:
@@ -276,6 +286,11 @@ class Game:
             if ship.life <= fighter.maximum_life - 150:
                 commands[ship_id] = RepairCommand()
 
+    def _heal_mothership_if_damaged(self, commands, mothership_id, mothership):
+        if mothership.life <= 500 and self.tick - self.ticks_from_last_repair >= 3:
+            commands[mothership_id] = RepairCommand()
+            self.ticks_from_last_repair = self.tick
+
     def build_ships(self, commands, mothership_id):
         """
         Builds extra shippers if we have money and small number of shippers
@@ -291,7 +306,6 @@ class Game:
 
         if self.data.players[self.player_id].net_worth.money > repair_reserve and shipper_count < shipper_target:
             commands[mothership_id] = ConstructCommand(ship_class="3")
-
 
     def trade(self, commands, shippers):
         """
@@ -403,21 +417,30 @@ class Game:
     def game_logic(self):
         # todo throw all this away
         self.recreate_me()
+        debugger = False
 
-        fighters = self._get_fighters(ship_class="5")
+        fighters = self._get_fighters(ship_class="4")
         shippers = self._get_ships(ship_class="3")
         enemy_fighters = self._get_enemy_ships(ship_class="4")
-        enemy_motherships = self._get_enemy_ships(ship_class="1")
         enemy_ships = self._get_enemy_ships(ship_class=None)
         mothership_id, mothership = self._get_our_mothership()
         commands = {}
 
         self._update_shippers_center(shippers)
 
+        # Manually send commands
+        if debugger:
+            #ducks = "5"
+            ducks = "5"
+            enemy_motherships = self._get_enemy_ships(ship_class="1", ship_player=ducks)
+            enemy_mid = next(iter(enemy_motherships))
+            self.move_fleet_to_position(commands, mothership_id, pos=enemy_motherships[enemy_mid].position)
+
         if mothership_id != 0:
-            need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="5", count=2)
-            self._heal_defenders_if_damaged(commands, fighters)
-            if not need_build or self.data.players[self.player_id].net_worth.money < 2000000:
+            need_build = self._update_active_defenders(commands, fighters, mothership_id, ship_class="4", count=3)
+            self._heal_mothership_if_damaged(commands, mothership_id, mothership)
+            #if not need_build or self.data.players[self.player_id].net_worth.money < 2000000:
+            if not need_build:
                 """
                 if get_dist(
                         self.shippers_center[0], self.shippers_center[1], mothership.position[0], mothership.position[1]
@@ -427,14 +450,16 @@ class Game:
 
                 #self.move_fleet_to_center(commands, mothership_id, pos=[1000, 498])
                 #self.move_fleet_to_center(commands, mothership_id, pos=[216, -860])
-                self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships)
+                self.hadrian_wall(commands, mothership_id, mothership, fighters, enemy_ships, exclude_players=set("4"))
                 # todo fallback if mothership is dead but fighters are not
         else:
             for ship_id, ship in shippers.items():
                 commands[ship_id] = DecommissionCommand()
 
+        #self.move_fleet_to_position(commands, mothership_id, pos=pos)
+
         # build
-        self.build_ships(commands, mothership_id)
+        #self.build_ships(commands, mothership_id)
 
         # trades here
         self.trade(commands, shippers)
@@ -526,10 +551,10 @@ def get_enemy_ships(ship_items, ship_class=None, ship_player=None) -> dict:
     return ships
 
 
-def find_ships_in_radius(pos: Tuple[float, float], radius, enemy_ships, exclude_classes=set()):
+def find_ships_in_radius(pos: Tuple[float, float], radius, enemy_ships, exclude_classes=set(), exclude_players=set()):
     found_ships = {}
     for ship_id, ship in enemy_ships.items():
-        if ship.ship_class not in exclude_classes and \
+        if ship.ship_class not in exclude_classes and ship.player not in exclude_players and \
                 get_dist(pos[0], pos[1], ship.position[0], ship.position[1]) <= radius:
             found_ships[ship_id] = ship
 
