@@ -464,7 +464,7 @@ class Game:
         # trades here
         self.trade(commands, shippers)
 
-        self.unblock_stuck_shippers(commands)
+        #self.unblock_stuck_shippers(commands)
 
         """
         if len(enemy_duck_fighters.keys()) > 0:
